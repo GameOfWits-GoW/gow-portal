@@ -103,7 +103,10 @@ export class MasteryRoadExperiencePanelComponent implements OnInit, OnDestroy {
   public readonly cancelIcon = X
   public readonly modifyPointsIcon = Bolt
   public readonly applyPenaltyIcon = Gavel
-  public readonly rankingStyles: Record<number, { styleClass: string | null; textIcon: string | null } | undefined> = rankingStyles
+  public readonly rankingStyles: Record<
+    number,
+    { styleClass: string | null; textIcon: string | null } | undefined
+  > = rankingStyles
   public readonly downloadIcon = Download
 
   private destroy$ = new Subject<void>()
@@ -560,7 +563,11 @@ export class MasteryRoadExperiencePanelComponent implements OnInit, OnDestroy {
         next: students => {
           const rankingStudents =
             calcMasteryRoadStudentPeriodStatesRanking(students)
-          this.studentsRanking.set(rankingStudents)
+          this.studentsRanking.set([
+            ...rankingStudents.sort((a, b) =>
+              a.state.firstName.localeCompare(b.state.firstName)
+            )
+          ])
           this.isStudentsLoading.set(false)
         },
         error: err => {
