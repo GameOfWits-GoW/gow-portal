@@ -452,9 +452,9 @@ export class ShadowWarfareExperiencePanelComponent
       .subscribe({
         next: students => {
           this.students.set(
-            [...students].sort((a, b) =>
-              a.firstName.localeCompare(b.firstName, 'es', { sensitivity: 'base' })
-            )
+            [...students.sort((a, b) =>
+              a.lastName.localeCompare(b.lastName)
+            )]
           )
           this.isStudentsLoading.set(false)
         },
