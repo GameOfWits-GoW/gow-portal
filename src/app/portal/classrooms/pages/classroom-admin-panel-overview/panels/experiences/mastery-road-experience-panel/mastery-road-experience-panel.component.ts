@@ -563,11 +563,12 @@ export class MasteryRoadExperiencePanelComponent implements OnInit, OnDestroy {
         next: students => {
           const rankingStudents =
             calcMasteryRoadStudentPeriodStatesRanking(students)
-          this.studentsRanking.set([
-            ...rankingStudents.sort((a, b) =>
-              a.state.firstName.localeCompare(b.state.firstName)
-            )
-          ])
+
+          this.studentsRanking.set(
+            [...rankingStudents.sort((a, b) =>
+              a.state.lastName.localeCompare(b.state.lastName)
+            )]
+          )
           this.isStudentsLoading.set(false)
         },
         error: err => {
