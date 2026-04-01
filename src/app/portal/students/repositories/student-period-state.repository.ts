@@ -16,7 +16,7 @@ import {
   writeBatch
 } from '@angular/fire/firestore'
 import { chuckArray } from '@shared/utils/chuckArray'
-import { from, map, Observable, switchMap } from 'rxjs'
+import { forkJoin, from, map, Observable, of, switchMap } from 'rxjs'
 import { AcademicPeriodRespository } from '~/academic-periods/repositories/academic-period.repository'
 import { CharacterRepository } from '~/characters/repositories/character.repository'
 import { ExperienceSessionRepository } from '~/class-sessions/repositories/experience-session.repository'
@@ -131,22 +131,32 @@ export class StudentPeriodStateRepository {
       switchMap((studentsSnapshot: QuerySnapshot<DocumentData>) => {
         const studentRefs = studentsSnapshot.docs.map(doc => doc.ref)
 
-        if (studentRefs.length === 0) return from([])
+        if (studentRefs.length === 0) return of([])
 
-        const studentPeriodStatesQuery = query(
-          this.getCollectionRef(),
-          where('student', 'in', studentRefs),
-          where('academicPeriod', '==', academicPeriodRef)
+        const studentRefsChunks = chuckArray(studentRefs, 30)
+
+        const studentPeriodStateQueryObservables = studentRefsChunks.map(
+          studentRefsChunk => {
+            const studentPeriodStatesQuery = query(
+              this.getCollectionRef(),
+              where('student', 'in', studentRefsChunk),
+              where('academicPeriod', '==', academicPeriodRef)
+            )
+
+            return from(getDocs(studentPeriodStatesQuery))
+          }
         )
 
-        return from(getDocs(studentPeriodStatesQuery)).pipe(
-          map(snapshot => {
-            return snapshot.docs.map(
-              doc =>
-                ({
-                  id: doc.id,
-                  ...doc.data()
-                }) as StudentPeriodStatesDbModel
+        return forkJoin(studentPeriodStateQueryObservables).pipe(
+          map((snapshots: QuerySnapshot<DocumentData>[]) => {
+            return snapshots.flatMap(snapshot =>
+              snapshot.docs.map(
+                doc =>
+                  ({
+                    id: doc.id,
+                    ...doc.data()
+                  }) as StudentPeriodStatesDbModel
+              )
             )
           })
         )
