@@ -53,7 +53,7 @@
 
         <ng-template #body let-student>
           <tr>
-            <td [class.text-red-500]="student.healthPoints === 0" [class.line-through]="student.healthPoints === 0">{{ student.firstName }} {{ student.lastName }}</td>
+            <td [class.text-red-500]="student.healthPoints === 0" [class.line-through]="student.healthPoints === 0">{{ student.lastName }} {{ student.firstName }}</td>
             <td>{{ getCharacterName(student.characterId) }}</td>
             <td>{{ getTeamName(student.teamId) }}</td>
             <td>{{ student.healthPoints }}</td>
