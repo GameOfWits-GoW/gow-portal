@@ -111,6 +111,10 @@ export class ClassroomAdminPanelHomeworksPageComponent implements OnInit {
     this.showCreateHomeworkGroup.set(false)
   }
 
+  public isBaseDateLimitExpired(baseDateLimit: Date | null, now = new Date()): boolean {
+    return baseDateLimit !== null && baseDateLimit <= now
+  }
+
   private showCreateHomeworkGroupErrorMessage(code: string) {
     const { summary, message } = homeworkGroupsLoadingErrorMessages[code]
     this.showErrorMessage(summary, message)
