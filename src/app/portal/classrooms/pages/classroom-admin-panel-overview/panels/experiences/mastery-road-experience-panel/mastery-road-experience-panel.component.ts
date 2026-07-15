@@ -233,10 +233,10 @@ export class MasteryRoadExperiencePanelComponent implements OnInit, OnDestroy {
     })
 
     const studentStates = this.studentsRanking().map(student => student.state)
-    const updateRankingStudents =
-      calcMasteryRoadStudentPeriodStatesRanking(studentStates)
 
-    this.studentsRanking.set(updateRankingStudents)
+    this.studentsRanking.set(
+      calcMasteryRoadStudentPeriodStatesRanking(studentStates)
+    )
   }
 
   public isEditingStudent(studentId: string): boolean {
@@ -347,10 +347,10 @@ export class MasteryRoadExperiencePanelComponent implements OnInit, OnDestroy {
         const studentStates = this.studentsRanking().map(
           student => student.state
         )
-        const updateRankingStudents =
-          calcMasteryRoadStudentPeriodStatesRanking(studentStates)
 
-        this.studentsRanking.set(updateRankingStudents)
+        this.studentsRanking.set(
+          calcMasteryRoadStudentPeriodStatesRanking(studentStates)
+        )
 
         this.editingStudentsPointsMap.update(map => {
           const newMap = new Map(map)
@@ -457,10 +457,10 @@ export class MasteryRoadExperiencePanelComponent implements OnInit, OnDestroy {
           const studentStates = this.studentsRanking().map(
             student => student.state
           )
-          const updateRankingStudents =
-            calcMasteryRoadStudentPeriodStatesRanking(studentStates)
 
-          this.studentsRanking.set(updateRankingStudents)
+          this.studentsRanking.set(
+            calcMasteryRoadStudentPeriodStatesRanking(studentStates)
+          )
 
           this.toastService.add({
             severity: 'success',
@@ -561,13 +561,10 @@ export class MasteryRoadExperiencePanelComponent implements OnInit, OnDestroy {
       .getAllMasteryRoadStudentPeriodStates({ classroomId, academicPeriodId })
       .subscribe({
         next: students => {
-          const rankingStudents =
-            calcMasteryRoadStudentPeriodStatesRanking(students)
-
           this.studentsRanking.set(
-            [...rankingStudents.sort((a, b) =>
-              a.state.lastName.localeCompare(b.state.lastName)
-            )]
+            [...calcMasteryRoadStudentPeriodStatesRanking(students)].sort(
+              (a, b) => a.state.lastName.localeCompare(b.state.lastName)
+            )
           )
           this.isStudentsLoading.set(false)
         },
