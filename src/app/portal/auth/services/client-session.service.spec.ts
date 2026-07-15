@@ -56,6 +56,71 @@ describe('ClientSessionService', () => {
     expect(activatedUser.getIdTokenResult).toHaveBeenCalledWith(true)
   })
 
+  it.each([
+    undefined,
+    '2',
+    2.5,
+    clientVersionCode - 1
+  ])('rejects invalid session version claims: %p', async sessionVersion => {
+    callable.mockResolvedValue({
+      data: { token: 'custom-token', minimumClientVersionCode: 2 }
+    })
+    jest.mocked(activatedUser.getIdTokenResult).mockResolvedValue({
+      claims: { gow_session_version: sessionVersion }
+    } as never)
+    const service = new ClientSessionService({} as never, {} as never)
+
+    await expect(service.activate(normalUser)).rejects.toThrow(
+      'valid gow_session_version'
+    )
+  })
+
+  it('does not cache activation when custom-token sign-in changes users', async () => {
+    callable.mockResolvedValue({
+      data: { token: 'custom-token', minimumClientVersionCode: 2 }
+    })
+    const auth = { currentUser: normalUser }
+    jest.mocked(signInWithCustomToken).mockImplementation(async () => {
+      auth.currentUser = { uid: 'teacher-2' } as User
+      return { user: activatedUser } as never
+    })
+    const service = new ClientSessionService(
+      auth as never,
+      {} as never
+    )
+
+    await expect(service.activate(normalUser)).rejects.toThrow(
+      'does not match authenticated user'
+    )
+    await expect(service.activate(normalUser)).rejects.toThrow(
+      'does not match authenticated user'
+    )
+
+    expect(callable).toHaveBeenCalledTimes(2)
+  })
+
+  it('refreshes an invalid current session once before returning it', async () => {
+    const currentUser = {
+      uid: 'teacher-1',
+      getIdTokenResult: jest
+        .fn()
+        .mockResolvedValueOnce({ claims: { gow_session_version: 1 } })
+    } as unknown as User
+    callable.mockResolvedValue({
+      data: { token: 'custom-token', minimumClientVersionCode: 2 }
+    })
+    const service = new ClientSessionService(
+      { currentUser } as never,
+      {} as never
+    )
+
+    await expect(service.ensureCurrentSession()).resolves.toBe(activatedUser)
+
+    expect(currentUser.getIdTokenResult).toHaveBeenCalledWith(true)
+    expect(callable).toHaveBeenCalledTimes(1)
+    expect(activatedUser.getIdTokenResult).toHaveBeenCalledWith(true)
+  })
+
   it('maps UPDATE_REQUIRED without treating other failures as updates', async () => {
     callable.mockRejectedValue({
       code: 'failed-precondition',
