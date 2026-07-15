@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core'
 import { ReactiveFormsModule } from '@angular/forms'
-import { RouterLink } from '@angular/router'
+import { Router, RouterLink } from '@angular/router'
 import { ErrorResponse } from '@shared/types/ErrorResponse'
 import { Circle, CircleCheckBig, LucideAngularModule } from 'lucide-angular'
 import { MessageService } from 'primeng/api'
@@ -9,10 +9,18 @@ import { Ripple } from 'primeng/ripple'
 import { Toast } from 'primeng/toast'
 import { signInForm } from '~/auth/forms/signInForm'
 import { AuthService } from '~/auth/services/auth.service'
+import { UpdateRequiredError } from '~/auth/services/client-session.service'
 import { TextFieldComponent } from '~/shared/components/ui/text-field/text-field.component'
 import { commonErrorMessages } from '~/shared/data/commonErrorMessages'
 
 const signInErrorMessages = commonErrorMessages
+
+export function getSignInErrorMessage(code?: string) {
+  return signInErrorMessages[code ?? ''] ?? {
+    summary: 'No se pudo iniciar sesión',
+    message: 'Ocurrió un error inesperado. Intenta nuevamente.'
+  }
+}
 
 @Component({
   selector: 'gow-sign-in-form',
@@ -30,6 +38,7 @@ const signInErrorMessages = commonErrorMessages
 })
 export class SignInFormComponent {
   private readonly authService = inject(AuthService)
+  private readonly router = inject(Router)
 
   private readonly toastService = inject(MessageService)
 
@@ -50,13 +59,20 @@ export class SignInFormComponent {
       .signIn(signInCredentials.email, signInCredentials.password)
       .catch(err => {
         this.signInLoading.set(false)
-        const error = err as ErrorResponse
-        this.showSignInErrorMessage(error.code)
+        if (err instanceof UpdateRequiredError) {
+          this.router.navigateByUrl('/update-required')
+          return
+        }
+        const code =
+          typeof (err as ErrorResponse | undefined)?.code === 'string'
+            ? (err as ErrorResponse).code
+            : undefined
+        this.showSignInErrorMessage(code)
       })
   }
 
-  private showSignInErrorMessage(code: string) {
-    const { summary, message } = signInErrorMessages[code]
+  private showSignInErrorMessage(code?: string) {
+    const { summary, message } = getSignInErrorMessage(code)
     this.showErrorMessage(summary, message)
   }
 

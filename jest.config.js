@@ -6,5 +6,10 @@ module.exports = {
     '.*\\.e2e\\.spec\\.ts$',
     '.*\\.functional\\.spec\\.ts$'
   ],
-  globalSetup: 'jest-preset-angular/global-setup'
+  moduleNameMapper: {
+    '^~/(.*)$': '<rootDir>/src/app/portal/$1',
+    '^@shared/(.*)$': '<rootDir>/src/app/shared/$1'
+  },
+  globalSetup: 'jest-preset-angular/global-setup',
+  reporters: ['default', '<rootDir>/jest/no-focused-tests-reporter.js']
 }
