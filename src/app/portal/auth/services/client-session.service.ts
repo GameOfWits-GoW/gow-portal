@@ -32,11 +32,18 @@ export class UpdateRequiredError extends Error {
   }
 }
 
+class InvalidSessionVersionError extends Error {
+  constructor() {
+    super('Activated session token does not contain a valid gow_session_version.')
+  }
+}
+
 @Injectable({ providedIn: 'root' })
 export class ClientSessionService {
   private activatedUserId: string | null = null
   private reactivatedUserId: string | null = null
   private readonly activations = new Map<string, Promise<User>>()
+  private readonly currentSessionChecks = new Map<string, Promise<User>>()
 
   constructor(
     private readonly auth: Auth,
@@ -91,6 +98,27 @@ export class ClientSessionService {
     return this.activate(user)
   }
 
+  public async ensureCurrentSession(): Promise<User> {
+    const user = this.auth.currentUser
+    if (user === null) {
+      this.invalidate()
+      throw new Error('No authenticated user is available for the current session.')
+    }
+
+    const inFlightCheck = this.currentSessionChecks.get(user.uid)
+    if (inFlightCheck !== undefined) return inFlightCheck
+
+    const check = this.ensureUserSession(user)
+    this.currentSessionChecks.set(user.uid, check)
+
+    try {
+      return await check
+    } finally {
+      if (this.currentSessionChecks.get(user.uid) === check)
+        this.currentSessionChecks.delete(user.uid)
+    }
+  }
+
   public reportGuardFailure(error: unknown): void {
     this.reportFailure('guard', error)
   }
@@ -106,16 +134,16 @@ export class ClientSessionService {
       })
 
       const credential = await signInWithCustomToken(this.auth, result.data.token)
-      if (credential.user.uid !== user.uid) {
+      const currentUser = this.auth.currentUser
+      if (
+        credential.user.uid !== user.uid ||
+        (currentUser !== null &&
+          currentUser !== undefined &&
+          currentUser.uid !== credential.user.uid)
+      ) {
         throw new Error('Activated session user does not match authenticated user.')
       }
-      const token = await credential.user.getIdTokenResult(true)
-
-      if (token.claims['gow_session_version'] === undefined) {
-        throw new Error(
-          'Activated session token does not contain gow_session_version.'
-        )
-      }
+      await this.validateSessionVersion(credential.user)
 
       this.activatedUserId = credential.user.uid
       return credential.user
@@ -123,6 +151,31 @@ export class ClientSessionService {
       this.activatedUserId = null
       this.reportFailure('activation', error)
       throw this.toSessionError(error)
+    }
+  }
+
+  private async ensureUserSession(user: User): Promise<User> {
+    try {
+      await this.validateSessionVersion(user)
+      return user
+    } catch (error) {
+      if (!(error instanceof InvalidSessionVersionError)) throw error
+
+      this.invalidate()
+      return await this.reactivate(user)
+    }
+  }
+
+  private async validateSessionVersion(user: User): Promise<void> {
+    const token = await user.getIdTokenResult(true)
+    const sessionVersion = token.claims['gow_session_version']
+
+    if (
+      typeof sessionVersion !== 'number' ||
+      !Number.isInteger(sessionVersion) ||
+      sessionVersion < clientVersionCode
+    ) {
+      throw new InvalidSessionVersionError()
     }
   }
 
