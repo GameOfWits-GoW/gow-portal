@@ -48,27 +48,32 @@ export class SignInFormComponent {
   public signInLoading = signal<boolean>(false)
   public signInForm = signInForm()
 
-  public signIn() {
+  public async signIn() {
     if (this.signInForm.invalid) return
 
     this.signInLoading.set(true)
 
     const signInCredentials = this.signInForm.getRawValue()
 
-    this.authService
-      .signIn(signInCredentials.email, signInCredentials.password)
-      .catch(err => {
-        this.signInLoading.set(false)
-        if (err instanceof UpdateRequiredError) {
-          this.router.navigateByUrl('/update-required')
-          return
-        }
-        const code =
-          typeof (err as ErrorResponse | undefined)?.code === 'string'
-            ? (err as ErrorResponse).code
-            : undefined
-        this.showSignInErrorMessage(code)
-      })
+    try {
+      await this.authService.signIn(
+        signInCredentials.email,
+        signInCredentials.password
+      )
+      await this.router.navigateByUrl('/p/general')
+    } catch (err) {
+      if (err instanceof UpdateRequiredError) {
+        this.router.navigateByUrl('/update-required')
+        return
+      }
+      const code =
+        typeof (err as ErrorResponse | undefined)?.code === 'string'
+          ? (err as ErrorResponse).code
+          : undefined
+      this.showSignInErrorMessage(code)
+    } finally {
+      this.signInLoading.set(false)
+    }
   }
 
   private showSignInErrorMessage(code?: string) {
