@@ -49,6 +49,7 @@
           <th>Nombre</th>
           <th>Fecha de creación</th>
           <th>Fecha de entrega</th>
+          <th>Fecha límite</th>
         </tr>
       </ng-template>
 
@@ -60,6 +61,16 @@
           <td>{{ group.name }}</td>
           <td>{{ group.createdAt | date: "short" }}</td>
           <td>{{ group.deliveredAt | date: "short" }}</td>
+          <td>
+            @if (group.baseDateLimit !== null) {
+              <div class="flex flex-col gap-1">
+                <span>{{ group.baseDateLimit | date: "shortDate" }}</span>
+                @if (isBaseDateLimitExpired(group.baseDateLimit)) {
+                  <span class="text-xs text-red-500">Plazo finalizado</span>
+                }
+              </div>
+            }
+          </td>
         </tr>
       </ng-template>
     </p-table>
