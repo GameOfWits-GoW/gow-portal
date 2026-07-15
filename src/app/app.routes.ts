@@ -18,6 +18,7 @@ import { isNotAuthenticatedGuard } from '~/shared/guards/is-not-authenticated.gu
 import { PortalLayoutComponent } from '~/shared/layouts/portal-layout/portal-layout.component'
 import { LandingPageComponent } from '~/shared/pages/landing/landing.component'
 import { PortalGeneralPageComponent } from '~/shared/pages/portal-general/portal-general.component'
+import { UpdateRequiredPageComponent } from '~/shared/pages/update-required/update-required.component'
 import { ClassroomAdminPanelStudentDetailsPageComponent } from '~/students/pages/classroom-admin-panel-student-details/classroom-admin-panel-student-details.component'
 import { ClassroomAdminPanelStudentsPageComponent } from '~/students/pages/classroom-admin-panel-students/classroom-admin-panel-students.component'
 import { ClassroomAdminPanelTeamsCharactersPageComponent } from '~/teams/pages/classroom-admin-panel-teams-characters/classroom-admin-panel-teams-characters.component'
@@ -42,6 +43,10 @@ export const routes: Routes = [
         component: ForgotPasswordPageComponent
       }
     ]
+  },
+  {
+    path: 'update-required',
+    component: UpdateRequiredPageComponent
   },
   {
     path: 'p',
