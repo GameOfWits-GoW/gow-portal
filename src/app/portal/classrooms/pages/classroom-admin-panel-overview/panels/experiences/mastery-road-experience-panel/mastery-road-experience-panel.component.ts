@@ -47,7 +47,7 @@ import { rankingStyles } from '~/students/data/rankingStyles'
 import { MasteryRoadStudentPeriodState } from '~/students/models/MasteryRoadStudentPeriodState'
 import { MasteryRoadStudentPeriodStateRanking } from '~/students/models/MasteryRoadStudentPeriodStateRanking'
 import { StudentPeriodStateService } from '~/students/services/student-period-state/student-period-state.service'
-import { calcMasteryRoadStudentPeriodStatesRanking } from '~/students/utils/calcMasteryRoadStudentPeriodStatesRanking'
+import { buildMasteryRoadPanelStudentRanking } from './build-mastery-road-panel-student-ranking'
 
 const studentAbilityUsagesErrorMessages: ErrorMessages = {
   ...commonErrorMessages
@@ -219,24 +219,18 @@ export class MasteryRoadExperiencePanelComponent implements OnInit, OnDestroy {
 
   public onSuccessApplyPenaltyToStudent(result: ApplyPenaltyToStudentSuccess) {
     this.studentsRanking.update(students => {
-      const studentIndex = students.findIndex(
-        student => student.state.id === result.studentPeriodStateId
+      const studentStates = students.map(student =>
+        student.state.id === result.studentPeriodStateId
+          ? {
+              ...student.state,
+              progressPoints: result.newStudentProgressPoints,
+              levelId: result.newLevelId
+            }
+          : student.state
       )
 
-      if (studentIndex === -1) return students
-
-      students[studentIndex].state.progressPoints =
-        result.newStudentProgressPoints
-      students[studentIndex].state.levelId = result.newLevelId
-
-      return students
+      return buildMasteryRoadPanelStudentRanking(studentStates)
     })
-
-    const studentStates = this.studentsRanking().map(student => student.state)
-
-    this.studentsRanking.set(
-      calcMasteryRoadStudentPeriodStatesRanking(studentStates)
-    )
   }
 
   public isEditingStudent(studentId: string): boolean {
@@ -332,25 +326,18 @@ export class MasteryRoadExperiencePanelComponent implements OnInit, OnDestroy {
       })
       .then(({ newLevelId, newProgressPoints }) => {
         this.studentsRanking.update(students => {
-          const studentIndex = students.findIndex(
-            student => student.state.id === editing.studentId
+          const studentStates = students.map(student =>
+            student.state.id === editing.studentId
+              ? {
+                  ...student.state,
+                  progressPoints: newProgressPoints,
+                  levelId: newLevelId
+                }
+              : student.state
           )
 
-          if (studentIndex === -1) return students
-
-          students[studentIndex].state.progressPoints = newProgressPoints
-          students[studentIndex].state.levelId = newLevelId
-
-          return students
+          return buildMasteryRoadPanelStudentRanking(studentStates)
         })
-
-        const studentStates = this.studentsRanking().map(
-          student => student.state
-        )
-
-        this.studentsRanking.set(
-          calcMasteryRoadStudentPeriodStatesRanking(studentStates)
-        )
 
         this.editingStudentsPointsMap.update(map => {
           const newMap = new Map(map)
@@ -429,20 +416,22 @@ export class MasteryRoadExperiencePanelComponent implements OnInit, OnDestroy {
         )
 
         this.studentsRanking.update(students => {
-          successfulUpdates.forEach(
-            ({ studentId, newLevelId, newProgressPoints }) => {
-              const studentIndex = students.findIndex(
-                student => student.state.id === studentId
-              )
-
-              if (studentIndex === -1) return
-
-              students[studentIndex].state.progressPoints = newProgressPoints
-              students[studentIndex].state.levelId = newLevelId
-            }
+          const updatesByStudentId = new Map(
+            successfulUpdates.map(update => [update.studentId, update])
           )
+          const studentStates = students.map(student => {
+            const update = updatesByStudentId.get(student.state.id)
 
-          return students
+            return update
+              ? {
+                  ...student.state,
+                  progressPoints: update.newProgressPoints,
+                  levelId: update.newLevelId
+                }
+              : student.state
+          })
+
+          return buildMasteryRoadPanelStudentRanking(studentStates)
         })
 
         this.editingStudentsPointsMap.update(map => {
@@ -454,14 +443,6 @@ export class MasteryRoadExperiencePanelComponent implements OnInit, OnDestroy {
         })
 
         if (successfulUpdates.length > 0) {
-          const studentStates = this.studentsRanking().map(
-            student => student.state
-          )
-
-          this.studentsRanking.set(
-            calcMasteryRoadStudentPeriodStatesRanking(studentStates)
-          )
-
           this.toastService.add({
             severity: 'success',
             summary: 'Éxito',
@@ -561,11 +542,7 @@ export class MasteryRoadExperiencePanelComponent implements OnInit, OnDestroy {
       .getAllMasteryRoadStudentPeriodStates({ classroomId, academicPeriodId })
       .subscribe({
         next: students => {
-          this.studentsRanking.set(
-            [...calcMasteryRoadStudentPeriodStatesRanking(students)].sort(
-              (a, b) => a.state.lastName.localeCompare(b.state.lastName)
-            )
-          )
+          this.studentsRanking.set(buildMasteryRoadPanelStudentRanking(students))
           this.isStudentsLoading.set(false)
         },
         error: err => {
