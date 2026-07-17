@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core'
 import { User } from '@angular/fire/auth'
+import { Storage } from '@angular/fire/storage'
 import { ClientSessionService } from '~/auth/services/client-session.service'
 import { StorageService } from '~/shared/services/storage.service'
 
@@ -13,10 +14,20 @@ type UploadAuthDiagnostic = {
   audience?: string
 }
 
+type StorageTransportProbe = {
+  attempted: boolean
+  timestamp: string
+  httpStatus?: number
+  networkFailure?: 'request_failed' | 'timed_out'
+}
+
+const STORAGE_TRANSPORT_PROBE_TIMEOUT_MS = 1_000
+
 @Injectable({ providedIn: 'root' })
 export class StorageHomeworkService {
   private readonly clientSessionService = inject(ClientSessionService)
   private readonly storageService = inject(StorageService)
+  private readonly storage = inject(Storage)
 
   public async uploadHomeworkProblem(
     ids: {
@@ -29,14 +40,78 @@ export class StorageHomeworkService {
     const user = await this.clientSessionService.ensureCurrentSession()
     const authDiagnostic = await this.captureAuthDiagnostic(user)
     const path = `schools/${ids.schoolId}/classrooms/${ids.classroomId}/homeworks/${ids.homeworkId}/problems/${crypto.randomUUID()}`
+    let transportProbe: StorageTransportProbe = {
+      attempted: false,
+      timestamp: new Date().toISOString()
+    }
 
     try {
-      return await this.storageService.upload(path, image, {
-        contentType: image.type
-      })
+      return await this.storageService.upload(
+        path,
+        image,
+        {
+          contentType: image.type
+        },
+        async () => {
+          transportProbe = await this.probeStorageTransport(user)
+        }
+      )
     } catch (error) {
-      this.reportUploadFailure(authDiagnostic, error)
+      console.log(error)
+      this.reportUploadFailure(authDiagnostic, transportProbe, error)
       throw error
+    }
+  }
+
+  private async probeStorageTransport(
+    user: User
+  ): Promise<StorageTransportProbe> {
+    const timestamp = new Date().toISOString()
+    const controller = new AbortController()
+    let timeout: ReturnType<typeof setTimeout> | undefined
+
+    try {
+      return await Promise.race([
+        this.requestStorageTransportProbe(user, controller.signal, timestamp),
+        new Promise<StorageTransportProbe>((resolve) => {
+          timeout = setTimeout(() => {
+            controller.abort()
+            resolve({ attempted: true, networkFailure: 'timed_out', timestamp })
+          }, STORAGE_TRANSPORT_PROBE_TIMEOUT_MS)
+        })
+      ])
+    } finally {
+      if (timeout) clearTimeout(timeout)
+    }
+  }
+
+  private async requestStorageTransportProbe(
+    user: User,
+    signal: AbortSignal,
+    timestamp: string
+  ): Promise<StorageTransportProbe> {
+    let token: string
+
+    try {
+      token = await user.getIdToken()
+    } catch {
+      return { attempted: false, timestamp }
+    }
+
+    try {
+      if (signal.aborted)
+        return { attempted: true, networkFailure: 'timed_out', timestamp }
+
+      const bucket = this.storage.app.options.storageBucket
+      if (!bucket) return { attempted: false, timestamp }
+
+      const response = await fetch(
+        `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket)}/o?maxResults=1`,
+        { headers: { Authorization: `Firebase ${token}` }, signal }
+      )
+      return { attempted: true, httpStatus: response.status, timestamp }
+    } catch {
+      return { attempted: true, networkFailure: 'request_failed', timestamp }
     }
   }
 
@@ -97,6 +172,7 @@ export class StorageHomeworkService {
 
   private reportUploadFailure(
     auth: UploadAuthDiagnostic,
+    transportProbe: StorageTransportProbe,
     error: unknown
   ): void {
     try {
@@ -105,6 +181,7 @@ export class StorageHomeworkService {
       console.error('homework_storage_upload_failure', {
         timestamp: new Date().toISOString(),
         auth,
+        transportProbe,
         storage: {
           code:
             typeof storageError?.code === 'string'

@@ -14,9 +14,11 @@ export class StorageService {
   public async upload(
     path: string,
     file: Blob | Uint8Array | ArrayBuffer,
-    metadata?: { [key: string]: string }
+    metadata?: { [key: string]: string },
+    beforeUpload?: () => Promise<void>
   ): Promise<string> {
     const fileRef = ref(this.storage, path)
+    await beforeUpload?.()
     await uploadBytes(fileRef, file, metadata)
     return path
   }
